@@ -9,6 +9,14 @@ import { google } from 'googleapis';
 import { eq } from 'drizzle-orm';
 import { AUTH_GOOGLE_CLIENT_ID, AUTH_GOOGLE_CLIENT_SECRET } from '$env/static/private';
 
+const SCOPES = [
+	'openid',
+	'https://www.googleapis.com/auth/userinfo.email',
+	'https://www.googleapis.com/auth/userinfo.profile',
+	'https://www.googleapis.com/auth/calendar.events',
+	'https://www.googleapis.com/auth/calendar.readonly',
+	'https://www.googleapis.com/auth/gmail.readonly'
+].join(' ');
 export const { handle, signIn, signOut } = SvelteKitAuth({
 	adapter: DrizzleAdapter(db, {
 		usersTable: users,
@@ -23,14 +31,6 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
 			clientSecret: AUTH_GOOGLE_CLIENT_SECRET,
 			authorization: {
 				params: {
-					scope: [
-						'openid',
-						'https://www.googleapis.com/auth/userinfo.email',
-						'https://www.googleapis.com/auth/userinfo.profile',
-						'https://www.googleapis.com/auth/calendar.events',
-						'https://www.googleapis.com/auth/calendar.readonly',
-						'https://www.googleapis.com/auth/gmail.readonly'
-					].join(' '),
 					access_type: 'offline',
 					prompt: 'consent'
 				}
@@ -44,9 +44,8 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
 			if (!account) {
 				return false;
 			}
-			console.log('account', account);
 
-			// Only attempt Gmail and Calendar validation if we have a Google account with access token
+			/*/
 			if (account.provider === 'google' && account.access_token) {
 				try {
 					const auth = new google.auth.OAuth2();
@@ -81,6 +80,7 @@ export const { handle, signIn, signOut } = SvelteKitAuth({
 				}
 			}
 
+			/*/
 			return true; // let sign-in continue
 		}
 	},

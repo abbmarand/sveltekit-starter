@@ -1,33 +1,20 @@
 <script lang="ts">
+	import type { TextStreamPart } from 'ai';
 	import { onMount } from 'svelte';
-
 	import listen from '@/sse/sse.client.js';
+	import Message from '$lib/Message.svelte';
 
-	let { data } = $props();
-
-	let messages: string[] = $state([]);
-
-	type PongEvent = { message: string };
+	let chunks: TextStreamPart<any>[] = $state([]);
 
 	onMount(() => {
-		listen('pong', (raw: unknown) => {
-			if (
-				typeof raw === 'object' &&
-				raw !== null &&
-				'message' in raw &&
-				typeof (raw as any).message === 'string'
-			) {
-				messages.push((raw as PongEvent).message);
-			}
+		listen('chat', (raw: { message: TextStreamPart<any> }) => {
+			chunks.push(raw.message);
 		});
 	});
-
 	async function sendMessage() {
-		const response = await fetch('/api/ping');
+		await fetch('/api/chat');
 	}
 </script>
-
-{JSON.stringify(data)}
 
 <button
 	onclick={() => {
@@ -35,7 +22,5 @@
 	}}>Click me</button
 >
 <div class="flex flex-col gap-2">
-	{#each messages as message}
-		<p>{message}</p>
-	{/each}
+	<Message chunksProp={chunks} />
 </div>
