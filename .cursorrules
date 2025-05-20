@@ -1,0 +1,288 @@
+# .cursorrules
+
+#### Persona
+
+You are an expert in **Svelte 5**, **SvelteKit**, **TypeScript**, **Drizzle ORM**, **next.chadcn‑svelte**, and modern Server Sent Events patterns. Produce concise, idiomatic code that follows our team conventions.
+
+---
+
+#### Coding rules
+
+1. **Use Svelte 5 runes only** (`$state`, `$derived`, `$effect`, `$props`, etc.). Never use Svelte 4 `$:` labels.
+2. All examples are **TypeScript‑strict** (`lang="ts"`, `strictNullChecks` on).
+3. Data layer is **Drizzle ORM**—avoid other ORMs and raw SQL unless illustrating migrations.
+4. UI must import **next.chadcn‑svelte** components, e.g.
+   ```ts
+   import { Button } from '$lib/components/ui/button';
+   ```
+5. **Keep files small** (≈ 200 LOC max). Split logic into focused modules under:
+   - `src/lib/server/**` — server‑only helpers (database, ai, agents).
+   - `src/lib/client/**` — browser‑only helpers (utilities, client stores (for multi-page reactivity by only using $state())).
+   - `src/lib/components/**` — reusable UI (next.chadcn‑svelte wrappers, icons, etc.).
+   - `src/lib/sse` - Server Sent event handles (listen(channel, callback) and send(userids, channel, data))
+6. Style with **Tailwind CSS** utilities; avoid inline `style` attributes.
+7. Show only code relevant to the question—omit boilerplate covered here.
+8. Use project aliases: `$lib/*`, `@/*` (equivilent to ./src/lib/\*)
+9. Payloads over SSE must be camelCase JSON objects.
+10. JSON Channels must resemble the route/class or object the come from
+
+---
+
+#### Svelte 5 runes quick reference
+
+```svelte
+<script lang="ts">
+	let count = $state(0); // reactive state
+	const double = $derived(count * 2); // derived value
+	$effect(() => console.log(count)); // side‑effect
+	export const color = $props<string>(); // exported prop
+</script>
+```
+
+---
+
+#### Drizzle ORM cookbook
+
+1. Use indexes to improve performance.
+2. declare or import types when entering JSON objects
+
+```ts
+// src/db/schema.ts
+import { pgTable, serial, varchar, timestamp } from 'drizzle-orm/pg-core';
+
+export const authenticators = pgTable(
+	'authenticator',
+	{
+		credentialID: text('credentialID').notNull().unique(),
+		userId: text('userId')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		providerAccountId: text('providerAccountId').notNull(),
+		credentialPublicKey: text('credentialPublicKey').notNull(),
+		counter: integer('counter').notNull(),
+		credentialDeviceType: text('credentialDeviceType').notNull(),
+		credentialBackedUp: boolean('credentialBackedUp').notNull(),
+		transports: text('transports')
+	},
+	(authenticator) => [
+		{
+			compositePK: primaryKey({
+				columns: [authenticator.userId, authenticator.credentialID]
+			})
+		}
+	]
+);
+
+export const authenticatorRelations = relations(authenticators, ({ one }) => ({
+	user: one(users, {
+		fields: [authenticators.userId],
+		references: [users.id]
+	})
+}));
+```
+
+Migration commands:
+
+```bash
+pnpm db:generate && pnpm db:push
+```
+
+---
+
+#### next.chadcn‑svelte usage pattern
+
+```svelte
+<script lang="ts">
+	import { Button } from '$lib/components/ui/button';
+</script>
+
+<Button on:click={send}>Send</Button>
+```
+
+---
+
+#### Custom SSE helpers
+
+Client side (`src/lib/sse/sse.client.ts`):
+
+```svelte
+<script lang="ts">
+	import type { TextStreamPart } from 'ai';
+	import { onMount } from 'svelte';
+	import listen from '@/sse/sse.client.js';
+	import Message from '@/client/Message.svelte';
+	import { Button } from '@/components/ui/button';
+
+	let chunks: TextStreamPart<any>[] = $state([]);
+
+	onMount(() => {
+		listen('chat', (raw: { message: TextStreamPart<any> }) => {
+			chunks.push(raw.message);
+		});
+	});
+	async function sendMessage() {
+		await fetch('/api/chat');
+	}
+</script>
+
+<Button
+	onclick={() => {
+		sendMessage();
+	}}>Click me</Button
+>
+<div class="flex flex-col gap-2">
+	<Message chunksProp={chunks} />
+</div>
+```
+
+Server broadcast (`src/lib/sse/sse.server.ts`):
+
+```ts
+import type { RequestHandler } from '@sveltejs/kit';
+import { createWeatherAgent } from '@/server/ai/agents/weather';
+import send from '@/sse/sse.server';
+export const GET: RequestHandler = async ({ locals }) => {
+	const user = locals.user;
+	const agent = createWeatherAgent();
+	const stream = await agent.stream('What is the weather in San Fransisco?');
+	for await (const chunk of stream.fullStream) {
+		send([user?.id], 'chat', { message: chunk });
+	}
+	return new Response('ok');
+};
+```
+
+Guidelines
+
+- Use the provided wrapper (`listen`, `send`);
+- Channel names are template strings: `` `${job.id}.eventName` ``.
+- Payloads are plain JSON.
+
+---
+
+### Tree
+
+├── components.json
+├── drizzle
+│ ├── 0000_rainy_fat_cobra.sql
+│ └── meta
+│ ├── \_journal.json
+│ └── 0000_snapshot.json
+├── drizzle.config.ts
+├── eslint.config.js
+├── package.json
+├── pnpm-lock.yaml
+├── README.md
+├── src
+│ ├── app.css
+│ ├── app.d.ts
+│ ├── app.html
+│ ├── auth.ts
+│ ├── hooks.server.ts
+│ ├── lib
+│ │ ├── client
+│ │ │ └── utils.ts
+│ │ ├── components
+│ │ │ ├── markdown
+│ │ │ │ ├── custom.css
+│ │ │ │ └── Markdown.svelte
+│ │ │ ├── Message.svelte
+│ │ │ └── ui
+│ │ │ ├── accordion
+│ │ │ ├── alert
+│ │ │ ├── alert-dialog
+│ │ │ ├── aspect-ratio
+│ │ │ ├── avatar
+│ │ │ ├── badge
+│ │ │ ├── breadcrumb
+│ │ │ ├── button
+│ │ │ ├── calendar
+│ │ │ ├── card
+│ │ │ ├── carousel
+│ │ │ ├── chart
+│ │ │ ├── checkbox
+│ │ │ ├── collapsible
+│ │ │ ├── command
+│ │ │ ├── context-menu
+│ │ │ ├── data-table
+│ │ │ ├── dialog
+│ │ │ ├── drawer
+│ │ │ ├── dropdown-menu
+│ │ │ ├── form
+│ │ │ ├── hover-card
+│ │ │ ├── input
+│ │ │ ├── input-otp
+│ │ │ ├── label
+│ │ │ ├── menubar
+│ │ │ ├── pagination
+│ │ │ ├── popover
+│ │ │ ├── progress
+│ │ │ ├── radio-group
+│ │ │ ├── range-calendar
+│ │ │ ├── resizable
+│ │ │ ├── scroll-area
+│ │ │ ├── select
+│ │ │ ├── separator
+│ │ │ ├── sheet
+│ │ │ ├── sidebar
+│ │ │ ├── skeleton
+│ │ │ ├── slider
+│ │ │ ├── sonner
+│ │ │ ├── switch
+│ │ │ ├── table
+│ │ │ ├── tabs
+│ │ │ ├── textarea
+│ │ │ ├── toggle
+│ │ │ ├── toggle-group
+│ │ │ └── tooltip
+│ │ ├── hooks
+│ │ │ └── is-mobile.svelte.ts
+│ │ ├── server
+│ │ │ ├── ai
+│ │ │ │ ├── agents
+│ │ │ │ │ └── weather.ts
+│ │ │ │ ├── index.ts
+│ │ │ │ └── tools
+│ │ │ │ └── weather.ts
+│ │ │ └── db
+│ │ │ ├── index.ts
+│ │ │ └── schema.ts
+│ │ └── sse
+│ │ ├── sse.client.ts
+│ │ └── sse.server.ts
+│ └── routes
+│ ├── +layout.server.ts
+│ ├── +layout.svelte
+│ ├── +page.svelte
+│ ├── api
+│ │ ├── chat
+│ │ │ └── +server.ts
+│ │ └── ping
+│ │ └── +server.ts
+│ ├── signin
+│ │ ├── +page.server.ts
+│ │ └── +page.svelte
+│ ├── signout
+│ │ └── +page.server.ts
+│ └── sse
+│ └── +server.ts
+├── static
+│ └── favicon.png
+├── svelte.config.js
+├── tsconfig.json
+└── vite.config.ts
+
+---
+
+##### Dos ✅
+
+- Write strongly‑typed, self‑documenting code.
+- Extract reusable helpers and keep modules focused.
+- Follow the small‑file rule—split early.
+
+##### Don’ts ❌
+
+- No Svelte 4 `$:` labels, `bind:this` hacks or on:click events.
+- No Prisma, Supabase, or other ORMs.
+- No React/Next shadcn components.
+- No placeholder boilerplate unless explicitly requested.

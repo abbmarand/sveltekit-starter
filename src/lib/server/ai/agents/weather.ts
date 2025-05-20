@@ -1,6 +1,6 @@
-import { openai } from '@/ai';
+import { openai } from '@/server/ai';
 import { Agent } from '@mastra/core/agent';
-import { createWeatherTool } from '@/ai/tools/weather';
+import { createWeatherTool } from '@/server/ai/tools/weather';
 
 export function createWeatherAgent() {
 	const weatherTool = createWeatherTool();

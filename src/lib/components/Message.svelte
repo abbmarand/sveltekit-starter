@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { TextStreamPart } from 'ai';
-	import Markdown from '@/markdown/Markdown.svelte';
+	import Markdown from '@/client/markdown/Markdown.svelte';
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	function groupMessageChunks(chunks: Array<TextStreamPart<any>>): Array<TextStreamPart<any>> {
 		if (!chunks || !Array.isArray(chunks) || chunks.length === 0) {

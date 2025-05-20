@@ -1,5 +1,5 @@
 import type { RequestHandler } from '@sveltejs/kit';
-import { createWeatherAgent } from '@/ai/agents/weather';
+import { createWeatherAgent } from '@/server/ai/agents/weather';
 import send from '@/sse/sse.server';
 export const GET: RequestHandler = async ({ locals }) => {
 	const user = locals.user;
