@@ -17,3 +17,52 @@ AUTH_GOOGLE_CLIENT_SECRET='GOCSPX-xxxxx'
 AUTH_TRUST_HOST=true
 OPENAI_API_KEY=sk-proj-xxxxx
 ```
+
+
+
+#### Custom SSE helpers
+
+Client side (`src/lib/sse/sse.client.ts`):
+
+```svelte
+<script lang="ts">
+	import type { TextStreamPart } from 'ai';
+	import { onMount } from 'svelte';
+	import listen from '@/sse/sse.client.js';
+	import Message from '@/client/Message.svelte';
+	import { Button } from '@/components/ui/button';
+
+	let chunks: TextStreamPart<any>[] = $state([]);
+
+	onMount(() => {
+		listen('chat', (raw: { message: TextStreamPart<any> }) => {
+			chunks.push(raw.message);
+		});
+	});
+	async function sendMessage() {
+		await fetch('/api/chat');
+	}
+</script>
+
+<Button onclick={sendMessage}>Click me</Button>
+<div class="flex flex-col gap-2">
+	<Message chunksProp={chunks} />
+</div>
+```
+
+Server broadcast (`src/lib/sse/sse.server.ts`):
+
+```ts
+import type { RequestHandler } from '@sveltejs/kit';
+import { createWeatherAgent } from '@/server/ai/agents/weather';
+import send from '@/sse/sse.server';
+export const GET: RequestHandler = async ({ locals }) => {
+	const user = locals.user;
+	const agent = createWeatherAgent();
+	const stream = await agent.stream('What is the weather in San Fransisco?');
+	for await (const chunk of stream.fullStream) {
+		send([user?.id], 'chat', { message: chunk });
+	}
+	return new Response('ok');
+};
+```
